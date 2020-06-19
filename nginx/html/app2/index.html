@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="X-UA-Compatible" content="ie=edge">
+  <title>APP2</title>
+  <!-- 引入样式 -->
+  <link rel="stylesheet" href="https://cdn.bootcdn.net/ajax/libs/element-ui/2.13.2/theme-chalk/index.css">
+  <!-- 引入组件库 -->
+  <script src="https://cdn.bootcdn.net/ajax/libs/vue/2.6.11/vue.min.js"></script>
+  <script src="https://cdn.bootcdn.net/ajax/libs/qs/6.9.4/qs.min.js"></script>
+  <script src="https://cdn.bootcdn.net/ajax/libs/axios/0.19.2/axios.min.js"></script>
+  <script src="https://cdn.bootcdn.net/ajax/libs/element-ui/2.13.2/index.js"></script>
+</head>
+
+<body>
+  <div id="app">
+    <h1>APP22</h1>
+    <div v-if="userIsLogin != true">
+      请先登录!
+    </div>
+    <div v-if="userIsLogin == true">
+      欢迎{{userInfo.username}}登录系统!
+      <el-button @click="logout">注销</el-button>
+    </div>
+  </div>
+  <script type="text/javascript">
+    new Vue({
+      el: '#app',
+      data() {
+        return {
+          userIsLogin: false,
+          userInfo: {}
+        }
+      },
+      created() {
+        // 判断用户是否登录
+        var userIsLogin = this.userIsLogin;
+        if (!userIsLogin) {
+          // 如果没有登录，判断是否有临时票据token
+          var token = this.getUrlParam("token");
+          console.log("token" + token);
+          if (token != null && token !== "" && token !== undefined) {
+            // 如果有临时票据，就携带临时票据向CAS发起请求，验证获取用户会话信息
+            axios.defaults.withCredentials = true;
+            axios.post('http://www.sso.com/api/verifyToken?token=' + token)
+              .then(res => {
+                console.log(res)
+                if (res.data.success) {
+                  var userInfo = res.data.result;
+                  this.userInfo = userInfo;
+                  this.userIsLogin = true;
+
+                  /*
+                      由于http://www.app1.com/?token=a75b6e628b894d4393d2257196408627 中的
+                      token临时门票只能使用一次，因此重定向过来的请求解析完后需要把token参数去掉，
+                      只留下http://www.app1.com即可，并且不能刷新页面
+                   */
+
+                  // 不刷新页面修改URL
+                  var url = window.location.href;
+                  var valiable = url.split("?")[0];
+                  window.history.pushState({}, 0, valiable);
+                } else {
+                  alert(res.data.error);
+                }
+              });
+          } else {
+            // 如果没有临时票据，说明用户没有登录过，那么就跳转到CAS做登录认证
+            window.location.href = "http://www.sso.com/api/login?redirectUrl=http://www.app2.com"
+          }
+
+        }
+      },
+      methods: {
+        logout() {
+          axios.defaults.withCredentials = true;
+          axios.post('http://www.sso.com/api/logout')
+            .then(res => {
+              if (res.data.success) {
+                this.userInfo = {};
+                this.userIsLogin = false;
+                window.location.href = "http://www.app2.com"
+              } else {
+                alert(res.data.error);
+              }
+            })
+        },
+        // 从url中获取参数对应的值
+        getUrlParam(key) {
+          var query = window.location.search.substring(1);
+          var vars = query.split("&");
+          for (var i = 0; i < vars.length; i++) {
+            var pair = vars[i].split("=");
+            if (pair[0] === key) {
+              return pair[1];
+            }
+          }
+          return "";
+        },
+      }
+    })
+  </script>
+</body>
+
+</html>
